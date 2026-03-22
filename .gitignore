@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+/script/login.js
+/script/telegram.js
+
 # next.js
 /.next/
 /out/
