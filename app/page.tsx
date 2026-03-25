@@ -48,30 +48,28 @@ export default function Home() {
       .then(res => res.json())
       .then(data => {
         setTimeout(() => {
-          // Cek apakah ada error
+
+          // ✅ SELALU SET LOGIN INFO (kunci utama)
+          if (data.loginInfo) {
+            setLoginInfo(data.loginInfo);
+          }
+
+          // ❗ baru handle error
           if (data.error) {
             setError(data.error);
             setLoading(false);
             return;
           }
-          
-          // Simpan info login
-          if (data.loginInfo) {
-            setLoginInfo(data.loginInfo);
-          }
-          
-          // 1. Ambil yang belum selesai aja
+
           const activeTasks = (data.tugas || []).filter((t: Tugas) => !t.completed);
-          
-          // 2. Urutkan tugas dari tanggal terdekat ke terjauh
+
           const sortedTasks = activeTasks.sort((a: Tugas, b: Tugas) => {
-            const dateA = new Date(a.deadline).getTime();
-            const dateB = new Date(b.deadline).getTime();
-            return dateA - dateB;
+            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
           });
 
           setTugas(sortedTasks);
           setLoading(false);
+
         }, 800);
       })
       .catch(err => {
@@ -183,44 +181,61 @@ export default function Home() {
       </nav>
 
       <main className="relative max-w-5xl mx-auto px-6 lg:px-8 py-10 md:py-10">
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 animate-fade-in dark:border-red-800 dark:bg-red-950/30">
+        {(error || loginInfo) && (
+          <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 animate-fade-in
+            ${error 
+              ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30' 
+              : 'bg-white/60 dark:bg-[#1a1d24]/60 border-white/50 dark:border-white/5'
+            }`}
+          >
             
-            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-500" />
+            {/* ICON (cuma muncul kalau gak error) */}
+            {!error && (
+              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                <UserLock className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+            )}
 
-            <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex-1">
               
-              <p className="text-sm font-medium leading-tight text-red-800 dark:text-red-300">
-                {error}
-              </p>
+              {/* ERROR MODE */}
+              {error ? (
+                <>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                    {error}
+                  </p>
 
+                  {loginInfo && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      Terakhir login: {loginInfo.last_login_formatted}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* NORMAL MODE */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Terakhir login
+                  </p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {loginInfo?.last_login_formatted}
+                  </p>
+                </>
+              )}
+            </div>
+            
+            {/* BUTTON REFRESH (hanya saat error) */}
+            {error && (
               <button
                 onClick={() => window.location.reload()}
-                className="flex items-center gap-1.5 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-800"
+                className="flex items-center gap-1.5 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-800"
               >
                 Refresh
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
-            </div>
+            )}
           </div>
-        )}
-        
-        {/* Login Info Card */}
-        {loginInfo && !error && (
-          <div className="mb-6 p-3 bg-white/60 dark:bg-[#1a1d24]/60 backdrop-blur-xl rounded-xl border border-white/50 dark:border-white/5 flex items-center gap-3 animate-fade-in">
-            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-              <UserLock className="w-4 h-4 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Terakhir login</p>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {loginInfo.last_login_formatted}
-              </p>
-            </div>
-          </div>
-        )}
-        
+        )}     
         {/* Header Section */}
         <div className="mb-10 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-3">
@@ -252,7 +267,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
         {/* Tasks List Grouped by Month */}
         <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
           {loading ? (
