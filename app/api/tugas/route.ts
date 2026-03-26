@@ -88,16 +88,13 @@ export async function GET() {
           id: event.id?.toString(),
           course: event.course?.fullname?.replace("Arsip: ", "") || "Mata Kuliah",
           task: event.activityname || event.name,
-          deadline: date
-            ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-            : null,
-          overdue: timestamp ? timestamp < Date.now() / 1000 : false,
+          deadline: date ? date.toISOString() : null,
+          history: date ? date.getTime() < Date.now() : false,
           completed: false,
           hasDeadline: !!timestamp,
           timestamp: timestamp
         };
       });
-
       for (const task of filteredTasks) {
         await supabase
           .from("tugas")
@@ -106,7 +103,7 @@ export async function GET() {
             task: task.task,
             course: task.course,
             deadline: task.deadline,
-            overdue: task.overdue,
+            history: task.history,
             completed: task.completed || false
           });
       }
@@ -119,22 +116,31 @@ export async function GET() {
     filteredTasks.sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
     // 🔥 AMBIL DARI DATABASE
-      const { data: tugasDb, error: dbErrorTugas } = await supabase
-        .from("tugas")
-        .select("*")
-        .order("timestamp", { ascending: true });
+    const { data: tugasDb, error: dbErrorTugas } = await supabase
+      .from("tugas")
+      .select("*")
+      .order("timestamp", { ascending: true });
 
-      if (dbErrorTugas) {
-        console.error("AMBIL DB ERROR:", dbErrorTugas);
+    if (dbErrorTugas) {
+      console.error("AMBIL DB ERROR:", dbErrorTugas);
+    }
+
+    // ✨ FIX: Hitung ulang 'history' secara dinamis berdasarkan jam saat ini
+    const finalTugas = (tugasDb || []).map((t: any) => {
+      const isHistory = t.deadline ? new Date(t.deadline).getTime() < Date.now() : t.history;
+      return {
+        ...t,
+        history: isHistory
+      };
+    });
+
+    return Response.json({ 
+      tugas: finalTugas, // <-- Gunakan finalTugas yang udah dihitung ulang
+      loginInfo: {
+        last_login: session.last_login,
+        last_login_formatted: session.last_login_formatted
       }
-
-      return Response.json({ 
-        tugas: tugasDb || [],
-        loginInfo: {
-          last_login: session.last_login,
-          last_login_formatted: session.last_login_formatted
-        }
-      });
+    });
 
   } catch (err) {
     console.error("API Error:", err);
